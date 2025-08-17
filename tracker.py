@@ -1,5 +1,14 @@
 """
 Color filtering project using OpenCV
+
+    step 1: color masking
+
+    step 2: mask morphology
+
+    step 3: image denoising
+
+    step 4: 
+    
 """
 import cv2
 import numpy as np
@@ -9,34 +18,25 @@ import sys
 
 from enum import Enum
 
-# check different source input
-s: int = 0
-if len(sys.argv) > 1:
-    s = sys.argv[1]
-# start video caputure
-source: cv2.VideoCapture = cv2.VideoCapture(s)
-
-# create the window
-window: str = "Color Tracker"
-cv2.namedWindow(window, cv2.WINDOW_NORMAL)
-
-result = None
-running: bool = True
-
 class ThresholdMode(Enum):
     # enums for color modes
     NONE = 0
-    YELLOW = 1
+    BLUE = 1
+    YELLOW = 2
+    RED = 3
 mode = ThresholdMode.YELLOW
 
-def yellowMask(img: cv2.typing.MatLike) -> cv2.typing.MatLike:
+def makeColorMask(img: cv2.typing.MatLike, lower_hsv: tuple[int], upper_hsv: tuple[int]) -> cv2.typing.MatLike:
     # masking function
     img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    lower = np.array([15, 80, 108])
-    upper = np.array([40, 255, 255])
+    return cv2.inRange(img_hsv, lower_hsv, upper_hsv)
 
-    return cv2.inRange(img_hsv, lower, upper)
+# start video capture
+source: cv2.VideoCapture = cv2.VideoCapture(index = 0)
+
+result = None
+running: bool = True
 
 # main loop
 while running:
@@ -44,13 +44,31 @@ while running:
     if not ret: 
         break
 
-    # process frame
+    # color filtering
+    mask = None
     match mode:
-        case ThresholdMode.NONE:
-            result = frame
         case ThresholdMode.YELLOW:
-            y_mask = yellowMask(frame)
-            result = cv2.bitwise_and(frame, frame, mask = y_mask)
+            mask = makeColorMask(frame, 
+                                   lower_hsv = (15, 100, 108), 
+                                   upper_hsv = (35, 255, 255))
+        case ThresholdMode.RED:
+            mask1 = makeColorMask(frame,
+                                   lower_hsv = (170, 100, 108),
+                                   upper_hsv = (180, 255, 255))
+            mask2 = makeColorMask(frame,
+                                   lower_hsv = (0, 100, 108),
+                                   upper_hsv = (10, 255, 255))
+            mask = cv2.bitwise_or(mask1, mask2)
+            
+    # morphology
+    if mode is not ThresholdMode.NONE:
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel = np.ones((6,6), np.uint8))
+
+    # apply mask
+    result = cv2.bitwise_and(frame, frame, mask = mask)
+    
+    # denoising 
+    result = cv2.blur(result, (12, 12))
 
     # handle input
     key: int = cv2.waitKey(1)
@@ -61,10 +79,14 @@ while running:
         mode = ThresholdMode.NONE
     elif key == ord('y') or key == ord('Y'):
         mode = ThresholdMode.YELLOW
+    elif key == ord('r') or key == ord('R'):
+        mode = ThresholdMode.RED
 
     # display
-    cv2.imshow(window, result)
+    cv2.imshow("Result", result)
+    cv2.imshow("Mask", mask if mask is not None
+                            else np.zeros_like(frame[:, :, 0], dtype = np.uint8))
 
 # release memory and close
 source.release()
-cv2.destroyWindow(window)
+cv2.destroyAllWindows()
