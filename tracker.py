@@ -1,13 +1,9 @@
 """
-Color filtering project using OpenCV
+Color Tracker Project with OpenCV
 
     step 1: color masking
-
-    step 2: mask morphology
-
-    step 3: image denoising
-
-    step 4: 
+    step 2: morphology
+    step 4: contour detection
     
 """
 import cv2
@@ -34,8 +30,6 @@ def makeColorMask(img: cv2.typing.MatLike, lower_hsv: tuple[int], upper_hsv: tup
 
 # start video capture
 source: cv2.VideoCapture = cv2.VideoCapture(index = 0)
-
-result = None
 running: bool = True
 
 # main loop
@@ -49,26 +43,35 @@ while running:
     match mode:
         case ThresholdMode.YELLOW:
             mask = makeColorMask(frame, 
-                                   lower_hsv = (15, 100, 108), 
+                                   lower_hsv = (15, 120, 108), 
                                    upper_hsv = (35, 255, 255))
         case ThresholdMode.RED:
             mask1 = makeColorMask(frame,
-                                   lower_hsv = (170, 100, 108),
+                                   lower_hsv = (170, 120, 108),
                                    upper_hsv = (180, 255, 255))
             mask2 = makeColorMask(frame,
-                                   lower_hsv = (0, 100, 108),
+                                   lower_hsv = (0, 120, 108),
                                    upper_hsv = (10, 255, 255))
             mask = cv2.bitwise_or(mask1, mask2)
             
-    # morphology
+    # morphology for denoising
     if mode is not ThresholdMode.NONE:
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel = np.ones((6,6), np.uint8))
+        kernel = np.ones((12,12), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
-    # apply mask
-    result = cv2.bitwise_and(frame, frame, mask = mask)
-    
-    # denoising 
-    result = cv2.blur(result, (12, 12))
+    result = frame
+
+    # find and draw contour
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # cv2.drawContours(result, contours, -1, color = (255, 255, 255), thickness = 2)
+
+    # display contour bounding boxes
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)  # bounding box
+        cv2.rectangle(result, 
+                      (x, y), (x + w, y + h), 
+                      color = (255, 255, 255), thickness = 2)
 
     # handle input
     key: int = cv2.waitKey(1)
@@ -82,10 +85,10 @@ while running:
     elif key == ord('r') or key == ord('R'):
         mode = ThresholdMode.RED
 
-    # display
-    cv2.imshow("Result", result)
+    # display windows
     cv2.imshow("Mask", mask if mask is not None
                             else np.zeros_like(frame[:, :, 0], dtype = np.uint8))
+    cv2.imshow("Result", result)
 
 # release memory and close
 source.release()
