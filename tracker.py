@@ -4,7 +4,7 @@ Color Tracker Project with OpenCV
     step 1: color masking
     step 2: morphology
     step 3: contour detection
-    step 4: bounding box display
+    step 4: displaying largest area
 """
 import cv2
 import numpy as np
@@ -13,6 +13,7 @@ import os
 import sys
 
 from enum import Enum
+from collections import deque
 
 class ThresholdMode(Enum):
     # enums for color modes
@@ -30,6 +31,7 @@ def makeColorMask(img: cv2.typing.MatLike, lower_hsv: tuple[int], upper_hsv: tup
 
 # start video capture
 source: cv2.VideoCapture = cv2.VideoCapture(index = 0)
+trail_points: deque = deque(maxlen = 32)
 running: bool = True
 
 # main loop
@@ -60,7 +62,7 @@ while running:
             
     # morphology for denoising
     if mode is not ThresholdMode.NONE:
-        kernel = np.ones((12,12), np.uint8)
+        kernel = np.ones((10, 10), np.uint8)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
@@ -68,15 +70,32 @@ while running:
 
     # find and draw contour
     contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    # cv2.drawContours(result, contours, -1, color = (255, 255, 255), thickness = 2)
+    center = None
 
-    # display contour bounding boxes
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect(contour)  # bounding box
-        cv2.rectangle(result, 
-                      (x, y), (x + w, y + h), 
-                      color = (255, 255, 255), thickness = 2)
+    if contours:
+        # select largest contour
+        contour_max = max(contours, key = cv2.contourArea)
 
+        if cv2.contourArea(contour_max) > 300:
+            # draw the bounding rectangle
+            x, y, w, h = cv2.boundingRect(contour_max)
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
+
+            # draw center point
+            (center_x, center_y), radius = cv2.minEnclosingCircle(contour_max)
+            center = (int(center_x), int(center_y))
+            cv2.circle(frame, center, 5, 
+                       color = (0, 0, 255), thickness = -1)
+    trail_points.appendleft(center)
+
+    # draw trail
+    for i in range(1, len(trail_points)):
+        if trail_points[i - 1] is None or trail_points[i] is None:
+            continue
+
+        cv2.line(frame, trail_points[i-1], trail_points[i],
+                 color = (255, 255, 0), thickness = 2)
+    
     # handle input
     key: int = cv2.waitKey(1)
     if key == ord('q') or key == ord('Q') or key == 27:
