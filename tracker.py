@@ -1,22 +1,25 @@
 """
 Color Tracker Project with OpenCV
 
-    step 1: color masking
-    step 2: morphology
+    step 1: color threshold masking
+    step 2: morphology denoising
     step 3: contour detection
-    step 4: displaying largest area
+    step 4: filtering to largest area
+    step 5: bounding box and center point display
+    step 6: trail creation and display 
 """
+
 import cv2
 import numpy as np
 
 import os
 import sys
 
-from enum import Enum
 from collections import deque
+from enum import Enum
 
 class ThresholdMode(Enum):
-    # enums for color modes
+    """Enum for color modes to be detected (blue, yellow, red)"""
     NONE = 0
     BLUE = 1
     YELLOW = 2
@@ -24,7 +27,7 @@ class ThresholdMode(Enum):
 mode = ThresholdMode.YELLOW
 
 def makeColorMask(img: cv2.typing.MatLike, lower_hsv: tuple[int], upper_hsv: tuple[int]) -> cv2.typing.MatLike:
-    # masking function
+    """Color masking function"""
     img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
     return cv2.inRange(img_hsv, lower_hsv, upper_hsv)
