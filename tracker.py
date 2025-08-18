@@ -3,8 +3,8 @@ Color Tracker Project with OpenCV
 
     step 1: color masking
     step 2: morphology
-    step 4: contour detection
-    
+    step 3: contour detection
+    step 4: bounding box display
 """
 import cv2
 import numpy as np
@@ -41,16 +41,20 @@ while running:
     # color filtering
     mask = None
     match mode:
+        case ThresholdMode.BLUE:
+            mask = makeColorMask(frame,
+                                 lower_hsv = (100, 120, 90),
+                                 upper_hsv = (140, 255, 255))
         case ThresholdMode.YELLOW:
             mask = makeColorMask(frame, 
-                                   lower_hsv = (15, 120, 108), 
+                                   lower_hsv = (15, 120, 90), 
                                    upper_hsv = (35, 255, 255))
         case ThresholdMode.RED:
             mask1 = makeColorMask(frame,
-                                   lower_hsv = (170, 120, 108),
+                                   lower_hsv = (170, 120, 90),
                                    upper_hsv = (180, 255, 255))
             mask2 = makeColorMask(frame,
-                                   lower_hsv = (0, 120, 108),
+                                   lower_hsv = (0, 120, 90),
                                    upper_hsv = (10, 255, 255))
             mask = cv2.bitwise_or(mask1, mask2)
             
@@ -80,6 +84,8 @@ while running:
         running = False    
     elif key == ord('n') or key == ord('N'):
         mode = ThresholdMode.NONE
+    elif key == ord('b') or key == ord('B'):
+        mode = ThresholdMode.BLUE
     elif key == ord('y') or key == ord('Y'):
         mode = ThresholdMode.YELLOW
     elif key == ord('r') or key == ord('R'):
