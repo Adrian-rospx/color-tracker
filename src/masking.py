@@ -3,7 +3,7 @@
 import cv2
 import numpy as np
 
-def createColorThreshold(img_hsv: cv2.typing.MatLike, 
+def create_color_threshold(img_hsv: cv2.typing.MatLike, 
                          lower: tuple[int], 
                          upper: tuple[int]) -> cv2.typing.MatLike:
     """For creating the color threshold mask used during the processing
@@ -12,7 +12,7 @@ def createColorThreshold(img_hsv: cv2.typing.MatLike,
     """
     if upper[0] < lower[0]:
         # when the hue value loops around the 180 degrees mark (red hue)
-        mask_high_hue = cv2.inRange(img_hsv, lower, (180, upper[1], upper[2]))
+        mask_high_hue = cv2.inRange(img_hsv, lower, (179, upper[1], upper[2]))
         mask_low_hue = cv2.inRange(img_hsv, (0, lower[1], lower[2]), upper)
         
         # combine the two masks
@@ -20,7 +20,7 @@ def createColorThreshold(img_hsv: cv2.typing.MatLike,
     else:
         return cv2.inRange(img_hsv, lower, upper)
 
-def applyCLAHE(img_hsv: cv2.typing.MatLike) -> cv2.typing.MatLike:
+def apply_CLAHE(img_hsv: cv2.typing.MatLike) -> cv2.typing.MatLike:
     """CLAHE algorithm applied over hsv images"""
     h, s, v = cv2.split(img_hsv)
 
@@ -30,7 +30,7 @@ def applyCLAHE(img_hsv: cv2.typing.MatLike) -> cv2.typing.MatLike:
     return cv2.merge((h, s, v2))
 
 # Main masking function
-def createMask(img: cv2.typing.MatLike, 
+def create_mask(img: cv2.typing.MatLike, 
                lower_hsv: tuple[int], 
                upper_hsv: tuple[int]) -> cv2.typing.MatLike:
     """Current custom masking function. Applies the following:
@@ -43,10 +43,10 @@ def createMask(img: cv2.typing.MatLike,
     img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
     # apply CLAHE filter to hsv
-    img_hsv = applyCLAHE(img_hsv)
+    img_hsv = apply_CLAHE(img_hsv)
 
     # color threshold mask creation
-    mask = createColorThreshold(img_hsv, lower_hsv, upper_hsv)
+    mask = create_color_threshold(img_hsv, lower_hsv, upper_hsv)
 
     # blurring
     mask = cv2.GaussianBlur(mask, (7, 7), 0)

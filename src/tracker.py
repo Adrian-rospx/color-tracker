@@ -15,27 +15,30 @@ import os
 import sys
 
 from collections import deque
-from enum import Enum
 
 # user created modules
-from masking import createMask
+from masking import create_mask
+from utils import ThresholdMode, CustomColor, sample_color
 
-class ThresholdMode(Enum):
-    """Enum for color modes to be detected (none, blue, yellow, red)"""
-    NONE = 0
-    BLUE = 1
-    YELLOW = 2
-    RED = 3
+# mode enum default value
 mode = ThresholdMode.YELLOW
 
+custom_color = CustomColor(lower_hsv = (15, 120, 120), 
+                        upper_hsv = (35, 255, 255),
+                        h_tol = 30, s_tol = 60, v_tol = 60)
+
 # start video capture
-source: cv2.VideoCapture = cv2.VideoCapture(index = 0)
+cap: cv2.VideoCapture = cv2.VideoCapture(index = 0)
+
+result_window = "Result"
+cv2.namedWindow(result_window, cv2.WINDOW_NORMAL)
+
 trail_points: deque = deque(maxlen = 32)
 running: bool = True
 
 # main loop
 while running:
-    ret, frame = source.read()
+    ret, frame = cap.read()
     if not ret: 
         break
 
@@ -43,17 +46,21 @@ while running:
     mask = None
     match mode:
         case ThresholdMode.BLUE:
-            mask = createMask(frame,
-                                 lower_hsv = (100, 120, 120),
-                                 upper_hsv = (140, 255, 255))
+            mask = create_mask(frame,
+                                lower_hsv = (100, 120, 120),
+                                upper_hsv = (140, 255, 255))
         case ThresholdMode.YELLOW:
-            mask = createMask(frame, 
-                                   lower_hsv = (15, 120, 120), 
-                                   upper_hsv = (35, 255, 255))
+            mask = create_mask(frame, 
+                                lower_hsv = (15, 120, 120), 
+                                upper_hsv = (35, 255, 255))
         case ThresholdMode.RED:
-            mask = createMask(frame,
-                                   lower_hsv = (170, 120, 120),
-                                   upper_hsv = (10, 255, 255))
+            mask = create_mask(frame,
+                                lower_hsv = (170, 120, 120),
+                                upper_hsv = (10, 255, 255))
+        case ThresholdMode.CUSTOM:
+            mask = create_mask(frame,
+                                lower_hsv = tuple(custom_color.lower_hsv),
+                                upper_hsv = tuple(custom_color.upper_hsv))
 
     result = frame.copy()
     
@@ -98,12 +105,18 @@ while running:
         mode = ThresholdMode.YELLOW
     elif key == ord('r') or key == ord('R'):
         mode = ThresholdMode.RED
+    elif key == ord('c') or key == ord('C'):
+        mode = ThresholdMode.CUSTOM
+        
+    # mouse handling for custom color picker
+    if mode == ThresholdMode.CUSTOM:
+        cv2.setMouseCallback(result_window, sample_color, (frame, custom_color))
 
     # display windows
     cv2.imshow("Mask", mask if mask is not None
                             else np.zeros_like(frame[:, :, 0], dtype = np.uint8))
-    cv2.imshow("Result", result)
+    cv2.imshow(result_window, result)
 
 # release memory and close
-source.release()
+cap.release()
 cv2.destroyAllWindows()
