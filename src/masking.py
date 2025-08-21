@@ -20,23 +20,40 @@ def createColorThreshold(img_hsv: cv2.typing.MatLike,
     else:
         return cv2.inRange(img_hsv, lower, upper)
 
+def applyCLAHE(img_hsv: cv2.typing.MatLike) -> cv2.typing.MatLike:
+    """CLAHE algorithm applied over hsv images"""
+    h, s, v = cv2.split(img_hsv)
+
+    clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize = (8, 8))
+    v2 = clahe.apply(v)
+
+    return cv2.merge((h, s, v2))
+
 # Main masking function
 def createMask(img: cv2.typing.MatLike, 
                lower_hsv: tuple[int], 
                upper_hsv: tuple[int]) -> cv2.typing.MatLike:
     """Current custom masking function. Applies the following:
     
-    - hsv conversion
-    - color threshold mask creation
+    - HSV conversion
+    - Color threshold mask creation
+    - Gaussian blurring
+    - Morphology denoising
     """
     img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    
+    # apply CLAHE filter to hsv
+    img_hsv = applyCLAHE(img_hsv)
 
     # color threshold mask creation
     mask = createColorThreshold(img_hsv, lower_hsv, upper_hsv)
 
+    # blurring
+    mask = cv2.GaussianBlur(mask, (7, 7), 0)
+
     # morphology for denoising
-    kernel = np.ones((10, 10), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations = 1)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations = 2)
 
     return mask

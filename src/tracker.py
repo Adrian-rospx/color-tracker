@@ -1,7 +1,7 @@
 """
 Color Tracker Project with OpenCV
 
-    step 1: masking: color thresholding, blurring, morphology denoising
+    step 1: masking: CLAHE, color thresholding, blurring, morphology
     step 3: contour detection
     step 4: filtering to largest area
     step 5: bounding box and center point display
@@ -44,19 +44,19 @@ while running:
     match mode:
         case ThresholdMode.BLUE:
             mask = createMask(frame,
-                                 lower_hsv = (100, 120, 90),
+                                 lower_hsv = (100, 120, 120),
                                  upper_hsv = (140, 255, 255))
         case ThresholdMode.YELLOW:
             mask = createMask(frame, 
-                                   lower_hsv = (15, 120, 90), 
+                                   lower_hsv = (15, 120, 120), 
                                    upper_hsv = (35, 255, 255))
         case ThresholdMode.RED:
             mask = createMask(frame,
-                                   lower_hsv = (170, 120, 90),
+                                   lower_hsv = (170, 120, 120),
                                    upper_hsv = (10, 255, 255))
 
     result = frame.copy()
-
+    
     # find and draw contour
     contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     center = None
