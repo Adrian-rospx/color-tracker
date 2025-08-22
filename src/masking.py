@@ -21,8 +21,8 @@ def preprocess(img_hsv: cv2.typing.MatLike) -> cv2.typing.MatLike:
     return cv2.merge((h, s, v2))
 
 def create_color_threshold(img_hsv: cv2.typing.MatLike, 
-                         lower: tuple[int], 
-                         upper: tuple[int]) -> cv2.typing.MatLike:
+                         lower: tuple[int, int, int], 
+                         upper: tuple[int, int, int]) -> cv2.typing.MatLike:
     """For creating the color threshold mask used during the processing
     
     Handles red hue values, where the the upper value is lower than the first!
@@ -39,8 +39,8 @@ def create_color_threshold(img_hsv: cv2.typing.MatLike,
 
 # Main masking function
 def create_mask(img_hsv: cv2.typing.MatLike, 
-               lower_hsv: tuple[int], 
-               upper_hsv: tuple[int]) -> cv2.typing.MatLike:
+               lower_hsv: tuple[int, int, int], 
+               upper_hsv: tuple[int, int, int]) -> cv2.typing.MatLike:
     """Custom color masking function. Applies the following:
     
     - Color thresholding

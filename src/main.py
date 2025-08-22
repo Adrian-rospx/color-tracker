@@ -1,6 +1,7 @@
 """
 Color Tracker Project with OpenCV
 
+    step 0: camera input
     step 1: preprocessing: CLAHE, blur
     step 2: masking: color thresholding, morphology
     step 3: contour detection
@@ -29,59 +30,59 @@ class ColorTracker:
     # misc
     trail_points: deque
     running: bool
+    # for fps
+    prev_ticks: int
 
     def __init__(self, mode: ThresholdMode, custom_color: CustomColor, 
                 capture_source: str | int, result_window: str):
         self.mode = mode
         self.custom_color = custom_color
 
-        self.cap = cv2.VideoCapture(capture_source)
+        self.cap = cv2.VideoCapture(capture_source, cv2.CAP_V4L2)
 
         self.result_window = result_window
         cv2.namedWindow(self.result_window, cv2.WINDOW_NORMAL)
 
         self.trail_points = deque(maxlen = 32)
         self.running = True
+        self.prev_ticks = cv2.getTickCount()
 
-    def end(self):
+    def end(self) -> None:
         """release memory and close"""
         self.cap.release()
         cv2.destroyAllWindows()
 
-    # main loop
-    def run(self):
-        # convenience
-        trail_points = self.trail_points
-
+    def run(self) -> None:
+        """Essential loop function handling all image processing"""
         ret, frame = self.cap.read()
         if not ret: 
             return
 
         # preprocessing
-        res_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        res_hsv = preprocess(res_hsv)
+        frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        frame_hsv = preprocess(frame_hsv)
 
         # thresholding
         mask = None
         match self.mode:
             case ThresholdMode.BLUE:
-                mask = create_mask(res_hsv,
+                mask = create_mask(frame_hsv,
                                     lower_hsv = (100, 120, 120),
                                     upper_hsv = (140, 255, 255))
             case ThresholdMode.YELLOW:
-                mask = create_mask(res_hsv, 
+                mask = create_mask(frame_hsv, 
                                     lower_hsv = (15, 120, 120), 
                                     upper_hsv = (35, 255, 255))
             case ThresholdMode.RED:
-                mask = create_mask(res_hsv,
+                mask = create_mask(frame_hsv,
                                     lower_hsv = (170, 120, 120),
                                     upper_hsv = (10, 255, 255))
             case ThresholdMode.CUSTOM:
-                mask = create_mask(res_hsv,
+                mask = create_mask(frame_hsv,
                                     lower_hsv = tuple(self.custom_color.lower_hsv),
                                     upper_hsv = tuple(self.custom_color.upper_hsv))
 
-        result = cv2.cvtColor(res_hsv, cv2.COLOR_HSV2BGR)
+        frame = cv2.cvtColor(frame_hsv, cv2.COLOR_HSV2BGR)
 
         # contour detection
         contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, 
@@ -95,13 +96,15 @@ class ColorTracker:
             if cv2.contourArea(contour_max) > 300:
                 # draw the bounding rectangle
                 x, y, w, h = cv2.boundingRect(contour_max)
-                cv2.rectangle(result, (x, y), (x+w, y+h), (0, 0, 255), 2)
+                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
 
                 # draw center point
                 (center_x, center_y), radius = cv2.minEnclosingCircle(contour_max)
                 center = (int(center_x), int(center_y))
-                cv2.circle(result, center, 5, 
+                cv2.circle(frame, center, 5, 
                         color = (0, 0, 255), thickness = -1)
+                
+        trail_points = self.trail_points
         trail_points.appendleft(center)
 
         # draw trail
@@ -109,7 +112,7 @@ class ColorTracker:
             if trail_points[i - 1] is None or trail_points[i] is None:
                 continue
 
-            cv2.line(result, trail_points[i-1], trail_points[i],
+            cv2.line(frame, trail_points[i-1], trail_points[i],
                     color = (255, 255, 0), thickness = 2)
         
         # handle input
@@ -131,12 +134,18 @@ class ColorTracker:
         # mouse handling for custom color picker
         if self.mode == ThresholdMode.CUSTOM:
             cv2.setMouseCallback(self.result_window, sample_color, 
-                                 param = (res_hsv, self.custom_color))
+                                 param = (frame_hsv, self.custom_color))
+
+        # calculate fps
+        ticks: int = cv2.getTickCount()
+        fps: float = cv2.getTickFrequency() / (ticks - self.prev_ticks)
+        self.prev_ticks = ticks
+        cv2.putText(frame, f"FPS: {fps:5.2f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
         # display windows
         cv2.imshow("Mask", mask if mask is not None
                                 else np.zeros_like(frame[:, :, 0], dtype = np.uint8))
-        cv2.imshow(self.result_window, result)
+        cv2.imshow(self.result_window, frame)
 
 def main():
     # create the color tracker

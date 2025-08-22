@@ -1,9 +1,4 @@
-"""Utility functions and objects:
-
-- ThresholdMode enum
-- CustomColor class for easier conversion
-- sample_color for mouse click callback
-"""
+"""Utility functions and objects for working with colors"""
 
 import numpy as np
 import cv2
@@ -29,15 +24,15 @@ class CustomColor:
     s_tol: int
     v_tol: int
 
-    def __init__(self, lower_hsv: list[int], upper_hsv: list[int],
-                 h_tol: int, s_tol: int, v_tol):
+    def __init__(self, lower_hsv: tuple[int, ...], upper_hsv: tuple[int, ...],
+                 h_tol: int, s_tol: int, v_tol: int):
         self.lower_hsv = list(lower_hsv)
         self.upper_hsv = list(upper_hsv)
         self.h_tol = h_tol
         self.s_tol = s_tol
         self.v_tol = v_tol
 
-    def update(self, hsv: tuple[int]):
+    def update(self, hsv: tuple[int, int, int] | cv2.typing.MatLike):
         """Update the lower and upper hsv based on 
         set tolerances with the new hsv value
         """
@@ -66,9 +61,8 @@ def sample_color(event, x, y, flags,
         frame_hsv = param[0]
         custom_color = param[1]
         
-        hsv = frame_hsv[y, x]
+        hsv: cv2.typing.MatLike = frame_hsv[y, x]
         # print(f"Captured: {hsv}")
         
         # color update
         custom_color.update(hsv)
-
