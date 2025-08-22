@@ -3,12 +3,29 @@
 import cv2
 import numpy as np
 
+def preprocess(img_hsv: cv2.typing.MatLike) -> cv2.typing.MatLike:
+    """Applies the following:
+    
+    - CLAHE
+    - Gaussian blur
+    """
+    h, s, v = cv2.split(img_hsv)
+
+    # CLAHE
+    clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize = (8, 8))
+    v2 = clahe.apply(v)
+
+    # blurring the value channel
+    v2 = cv2.GaussianBlur(v2, (7, 7), 0)
+
+    return cv2.merge((h, s, v2))
+
 def create_color_threshold(img_hsv: cv2.typing.MatLike, 
                          lower: tuple[int], 
                          upper: tuple[int]) -> cv2.typing.MatLike:
     """For creating the color threshold mask used during the processing
     
-    Handles red hue values, where the the upper value is lower than the first! 
+    Handles red hue values, where the the upper value is lower than the first!
     """
     if upper[0] < lower[0]:
         # when the hue value loops around the 180 degrees mark (red hue)
@@ -20,36 +37,17 @@ def create_color_threshold(img_hsv: cv2.typing.MatLike,
     else:
         return cv2.inRange(img_hsv, lower, upper)
 
-def apply_CLAHE(img_hsv: cv2.typing.MatLike) -> cv2.typing.MatLike:
-    """CLAHE algorithm applied over hsv images"""
-    h, s, v = cv2.split(img_hsv)
-
-    clahe = cv2.createCLAHE(clipLimit = 2.0, tileGridSize = (8, 8))
-    v2 = clahe.apply(v)
-
-    return cv2.merge((h, s, v2))
-
 # Main masking function
-def create_mask(img: cv2.typing.MatLike, 
+def create_mask(img_hsv: cv2.typing.MatLike, 
                lower_hsv: tuple[int], 
                upper_hsv: tuple[int]) -> cv2.typing.MatLike:
-    """Current custom masking function. Applies the following:
+    """Custom color masking function. Applies the following:
     
-    - HSV conversion
-    - Color threshold mask creation
-    - Gaussian blurring
+    - Color thresholding
     - Morphology denoising
     """
-    img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    
-    # apply CLAHE filter to hsv
-    img_hsv = apply_CLAHE(img_hsv)
-
     # color threshold mask creation
     mask = create_color_threshold(img_hsv, lower_hsv, upper_hsv)
-
-    # blurring
-    mask = cv2.GaussianBlur(mask, (7, 7), 0)
 
     # morphology for denoising
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))

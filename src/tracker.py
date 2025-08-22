@@ -1,10 +1,11 @@
 """
 Color Tracker Project with OpenCV
 
-    step 1: masking: CLAHE, color thresholding, blurring, morphology
+    step 1: preprocessing: CLAHE, blur
+    step 2: masking: color thresholding, morphology
     step 3: contour detection
-    step 4: filtering to largest area
-    step 5: bounding box and center point display
+    step 4: contour filtering
+    step 5: bounding box, centroid display
     step 6: trail creation and display 
 """
 
@@ -17,7 +18,7 @@ import sys
 from collections import deque
 
 # user created modules
-from masking import create_mask
+from masking import create_mask, preprocess
 from utils import ThresholdMode, CustomColor, sample_color
 
 # mode enum default value
@@ -25,7 +26,7 @@ mode = ThresholdMode.YELLOW
 
 custom_color = CustomColor(lower_hsv = (15, 120, 120), 
                         upper_hsv = (35, 255, 255),
-                        h_tol = 30, s_tol = 60, v_tol = 60)
+                        h_tol = 30, s_tol = 60, v_tol = 80)
 
 # start video capture
 cap: cv2.VideoCapture = cv2.VideoCapture(index = 0)
@@ -42,32 +43,36 @@ while running:
     if not ret: 
         break
 
-    # color filtering
+    # preprocessing
+    res_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    res_hsv = preprocess(res_hsv)
+
+    # thresholding
     mask = None
     match mode:
         case ThresholdMode.BLUE:
-            mask = create_mask(frame,
+            mask = create_mask(res_hsv,
                                 lower_hsv = (100, 120, 120),
                                 upper_hsv = (140, 255, 255))
         case ThresholdMode.YELLOW:
-            mask = create_mask(frame, 
+            mask = create_mask(res_hsv, 
                                 lower_hsv = (15, 120, 120), 
                                 upper_hsv = (35, 255, 255))
         case ThresholdMode.RED:
-            mask = create_mask(frame,
+            mask = create_mask(res_hsv,
                                 lower_hsv = (170, 120, 120),
                                 upper_hsv = (10, 255, 255))
         case ThresholdMode.CUSTOM:
-            mask = create_mask(frame,
+            mask = create_mask(res_hsv,
                                 lower_hsv = tuple(custom_color.lower_hsv),
                                 upper_hsv = tuple(custom_color.upper_hsv))
 
-    result = frame.copy()
-    
-    # find and draw contour
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    center = None
+    result = cv2.cvtColor(res_hsv, cv2.COLOR_HSV2BGR)
 
+    # contour detection
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    
+    center = None
     if contours:
         # select largest contour
         contour_max = max(contours, key = cv2.contourArea)
@@ -110,7 +115,7 @@ while running:
         
     # mouse handling for custom color picker
     if mode == ThresholdMode.CUSTOM:
-        cv2.setMouseCallback(result_window, sample_color, (frame, custom_color))
+        cv2.setMouseCallback(result_window, sample_color, (res_hsv, custom_color))
 
     # display windows
     cv2.imshow("Mask", mask if mask is not None

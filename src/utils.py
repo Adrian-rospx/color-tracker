@@ -47,20 +47,22 @@ class CustomColor:
         self.upper_hsv[2] = min(255, v + self.v_tol//2)
 
         # optionally add logs
+        print(f"Lower: {self.lower_hsv}\nUpper: {self.upper_hsv}\n")
     
-def sample_color(event, x, y, flags, 
+def sample_color(event, x, y, flags,
                  param: tuple[cv2.typing.MatLike, CustomColor]):
-    """Mouse callback for sampling color at cursor position"""
+    """Mouse callback for sampling color at cursor position on click.
+    
+    Requires the hsv frame parameter and the custom color object.
+    """
     if event == cv2.EVENT_LBUTTONDOWN:
-        # bgr value
-        frame = param[0]
+        # parameters:
+        frame_hsv = param[0]
         custom_color = param[1]
-
-        bgr = np.uint8([[frame[y, x]]]) # shape (1, 1, 3), dtype = uint8
-
-        # convert to hsv
-        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)[0, 0]
         
-        print(f"Captured: {hsv}")
+        hsv = frame_hsv[y, x]
+        # print(f"Captured: {hsv}")
+        
+        # color update
         custom_color.update(hsv)
 
