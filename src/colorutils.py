@@ -1,3 +1,9 @@
+"""Utility functions and objects:
+
+- ThresholdMode enum
+- CustomColor class for easier conversion
+- sample_color for mouse click callback
+"""
 
 import numpy as np
 import cv2
