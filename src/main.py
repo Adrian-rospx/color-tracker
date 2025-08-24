@@ -4,8 +4,8 @@ Color Tracker Project with OpenCV
     step 0: camera input
     step 1: preprocessing: CLAHE, blur
     step 2: masking: color thresholding, morphology
-    step 3: contour detection
-    step 4: contour filtering
+    step 3: contour detection and filtering
+    step 4: polygon approximation
     step 5: bounding box, centroid display
     step 6: trail creation and display 
 """
@@ -20,31 +20,21 @@ from masking import create_mask, preprocess
 from colorutils import ThresholdMode, CustomColor, sample_color
 
 class ColorTracker:
-    # color modes
-    mode: ThresholdMode
-    custom_color: CustomColor
-    # input source
-    cap: cv2.VideoCapture
-    # display
-    result_window: str
-    # misc
-    trail_points: deque
-    running: bool
-    # for fps
-    prev_ticks: int
-
+    """Color tracker functionality with processing done by the run command"""
     def __init__(self, mode: ThresholdMode, custom_color: CustomColor, 
-                capture_source: str | int, result_window: str):
-        self.mode = mode
+                 capture_source: str | int, result_window: str):
+        # color modes
+        self.mode: ThresholdMode = mode
         self.custom_color = custom_color
-
+        # capture source
         self.cap = cv2.VideoCapture(capture_source, cv2.CAP_V4L2)
-
+        # windowing
         self.result_window = result_window
         cv2.namedWindow(self.result_window, cv2.WINDOW_NORMAL)
-
+        # misc
         self.trail_points = deque(maxlen = 32)
         self.running = True
+        # for fps count
         self.prev_ticks = cv2.getTickCount()
 
     def end(self) -> None:
@@ -88,33 +78,16 @@ class ColorTracker:
         contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, 
                                             cv2.CHAIN_APPROX_SIMPLE)
         
-        center = None
         if contours:
-            # select largest contour
-            contour_max = max(contours, key = cv2.contourArea)
+            for cnt in contours:
+                # select large area contours
+                if cv2.contourArea(cnt) > 500:
+                    # epsilon constant for polygon accuracy and depth
+                    epsilon: float = 0.04 * cv2.arcLength(cnt, closed = True)
+                    approx = cv2.approxPolyDP(cnt, epsilon, closed = True)
 
-            if cv2.contourArea(contour_max) > 300:
-                # draw the bounding rectangle
-                x, y, w, h = cv2.boundingRect(contour_max)
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
-
-                # draw center point
-                (center_x, center_y), radius = cv2.minEnclosingCircle(contour_max)
-                center = (int(center_x), int(center_y))
-                cv2.circle(frame, center, 5, 
-                        color = (0, 0, 255), thickness = -1)
+                    cv2.drawContours(frame, [approx], 0, (255, 255, 0), 2)
                 
-        trail_points = self.trail_points
-        trail_points.appendleft(center)
-
-        # draw trail
-        for i in range(1, len(trail_points)):
-            if trail_points[i - 1] is None or trail_points[i] is None:
-                continue
-
-            cv2.line(frame, trail_points[i-1], trail_points[i],
-                    color = (255, 255, 0), thickness = 2)
-        
         # handle input
         key: int = cv2.waitKey(1)
         if key == ord('q') or key == ord('Q') or key == 27:
@@ -153,7 +126,7 @@ def main():
         ThresholdMode.YELLOW,
         CustomColor(lower_hsv = (15, 120, 120), 
                     upper_hsv = (35, 255, 255),
-                    h_tol = 30, s_tol = 60, v_tol = 80),
+                    h_tol = 28, s_tol = 70, v_tol = 120),
         capture_source = 0,
         result_window = "Result"
     )
