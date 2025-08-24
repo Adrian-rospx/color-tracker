@@ -2,11 +2,11 @@
 Color Tracker Project with OpenCV
 
     step 0: camera input
-    step 1: preprocessing: CLAHE, blur
+    step 1: preprocessing: CLAHE, gaussian blur
     step 2: masking: color thresholding, morphology
     step 3: contour detection and filtering
     step 4: polygon approximation
-    step 5: bounding box, centroid display
+    step 5: contour, centroid display
     step 6: trail creation and display 
 """
 
@@ -31,11 +31,13 @@ class ColorTracker:
         # windowing
         self.result_window = result_window
         cv2.namedWindow(self.result_window, cv2.WINDOW_NORMAL)
-        # misc
+        # trail
         self.trail_points = deque(maxlen = 32)
-        self.running = True
+        self.trail_show = True
         # for fps count
         self.prev_ticks = cv2.getTickCount()
+        # misc
+        self.running = True
 
     def end(self) -> None:
         """release memory and close"""
@@ -78,16 +80,44 @@ class ColorTracker:
         contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, 
                                             cv2.CHAIN_APPROX_SIMPLE)
         
+
+        # contour processing
         if contours:
+            largest_center = None
+            max_area: int = 0
+            
             for cnt in contours:
-                # select large area contours
-                if cv2.contourArea(cnt) > 500:
-                    # epsilon constant for polygon accuracy and depth
+                # moments for area and centroid
+                M = cv2.moments(cnt)
+                if M['m00'] > 500:
+                    # epsilon value for polygon approximation
                     epsilon: float = 0.04 * cv2.arcLength(cnt, closed = True)
                     approx = cv2.approxPolyDP(cnt, epsilon, closed = True)
 
+                    # draw polygon
                     cv2.drawContours(frame, [approx], 0, (255, 255, 0), 2)
-                
+                    
+                    # draw center
+                    cx = int(M['m10']/M['m00'])
+                    cy = int(M['m01']/M['m00'])
+                    cv2.circle(frame, (cx, cy), 4, (255, 255, 0), -1)
+
+                    if M['m00'] > max_area:
+                        max_area = M['m00']
+                        largest_center = (cx, cy)
+            # add center of the largest area
+            self.trail_points.appendleft(largest_center)
+
+        # draw trail
+        if self.trail_show:
+            for i in range(1, len(self.trail_points)):
+                if self.trail_points[i-1] is None or self.trail_points[i] is None:
+                    continue
+
+                cv2.line(frame, self.trail_points[i-1], 
+                         self.trail_points[i], 
+                         color = (255, 255, 0), thickness = 1)
+
         # handle input
         key: int = cv2.waitKey(1)
         if key == ord('q') or key == ord('Q') or key == 27:
@@ -103,7 +133,10 @@ class ColorTracker:
             self.mode = ThresholdMode.RED
         elif key == ord('c') or key == ord('C'):
             self.mode = ThresholdMode.CUSTOM
-            
+        elif key == ord('t') or key == ord('T'):
+            self.trail_show = not self.trail_show
+            self.trail_points.clear()
+
         # mouse handling for custom color picker
         if self.mode == ThresholdMode.CUSTOM:
             cv2.setMouseCallback(self.result_window, sample_color, 

@@ -2,7 +2,7 @@
 
 Realised using OpenCV with goal of understanding:  
 preprocessing, color thresholding, denoising, contour detection
-contour filtering & selection, motion trail creation
+motion trails, basic user interface design
 
 ## Controls
 
@@ -15,3 +15,5 @@ Color threshold modes:
 - `C` - custom
 
 To select the custom color at the cursor press `LEFT CLICK`
+
+`T` - toggle trail display
